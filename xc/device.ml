@@ -1034,7 +1034,7 @@ let add ~xc ~xs pcidevs domid =
 			pcidevs
 	with exn -> raise (Cannot_add (pcidevs, exn))
 
-let release ~xc ~xs ~hvm pcidevs domid devid =
+let release ~xc ~xs pcidevs domid =
 	release_xl pcidevs domid
 
 let write_string_to_file file s =
@@ -1244,8 +1244,10 @@ let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.hvm_guest
 			with _ -> false
 			in
-		try release ~xc ~xs ~hvm devs x.frontend.domid x.frontend.devid
-		with _ -> ());
+		if hvm then 
+			try release ~xc ~xs devs x.frontend.domid
+			with _ -> ()
+		else ());
 	()
 
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
@@ -1311,58 +1313,6 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 			]
 		end
 	)
-
-let plug (task: Xenops_task.t) ~xc ~xs address domid = 
-	try
-		let current = read_pcidir ~xc ~xs domid in
-		let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
-
-		let pci = Xenops_interface.Pci.string_of_address address in
-		signal_device_model ~xc ~xs domid "pci-ins" pci;
-
-		let () = match wait_device_model task ~xc ~xs domid with
-			| Some "pci-inserted" -> 
-				(* success *)
-				xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
-				(* Ensure a frontend exists so the device watching code can see it *)
-				ensure_device_frontend_exists ~xs 0 domid;
-			| x ->
-				failwith
-					(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" (Opt.default "None" x)) in
-		debug "Device.Pci.plug domid=%d Xenctrl.domain_assign_device" domid;
-		Xenctrl.domain_assign_device xc domid
-			Xenops_interface.Pci.(address.domain, address.bus, address.dev, address.fn)
-	with e ->
-		error "Device.Pci.plug: %s" (Printexc.to_string e);
-		raise e
-
-let unplug (task: Xenops_task.t) ~xc ~xs address domid =
-	try
-		let current = read_pcidir ~xc ~xs domid in
-
-		let pci = Xenops_interface.Pci.string_of_address address in
-		let idx = fst (List.find (fun x -> snd x = address) current) in
-		signal_device_model ~xc ~xs domid "pci-rem" pci;
-
-		begin match wait_device_model task ~xc ~xs domid with
-			| Some "pci-removed" -> 
-				(* success *)
-				xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
-			| None ->
-				(* qemu has shutdown *)
-				()
-			| Some x ->
-				failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
-		end;
-		xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx));
-		(* CA-62028: tell the device to stop whatever it's doing *)
-		do_flr pci;
-		debug "Device.Pci.unplug domid=%d Xenctrl.domain_deassign_device" domid;
-		Xenctrl.domain_deassign_device xc domid
-			Xenops_interface.Pci.(address.domain, address.bus, address.dev, address.fn)
-	with e ->
-		error "Device.Pci.unplug: %s" (Printexc.to_string e);
-		raise e
 end
 
 module Vfs = struct

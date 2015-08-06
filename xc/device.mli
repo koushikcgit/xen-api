@@ -144,12 +144,9 @@ sig
 	exception Cannot_use_pci_with_no_pciback of t list
 
 	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address list -> Xenctrl.domid -> unit
-	val release : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool
-		-> address list -> Xenctrl.domid -> int -> unit
+	val release : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address list -> Xenctrl.domid -> unit
 	val reset : xs:Xenstore.Xs.xsh -> address -> unit
 	val bind : address list -> supported_driver -> unit
-	val plug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address -> Xenctrl.domid -> unit
-	val unplug : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> address -> Xenctrl.domid -> unit
 	val list : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
 end
 

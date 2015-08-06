@@ -1580,7 +1580,7 @@ module PCI = struct
 				(fun xc xs frontend_domid hvm ->
 					try
 						if hvm
-						then Device.PCI.unplug task ~xc ~xs pci.address frontend_domid
+						then Device.PCI.release xc xs [ pci.address ] frontend_domid
 						else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
 					with Not_found ->
 						debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
