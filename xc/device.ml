@@ -927,54 +927,6 @@ let _proc_pci_num_resources = 7
 (* same as libxl_internal: PCI_BAR_IO *)
 let _pci_bar_io = 0x01L
 
-(* comment out while we sort out libxenlight
-let pci_info_of ~msitranslate ~pci_power_mgmt = function
-    | domain, bus, dev, func ->
-        {
-            (* XXX: I don't think we can guarantee how the C compiler will
-               lay out bitfields.
-			   unsigned int reserved1:2;
-			   unsigned int reg:6;
-			   unsigned int func:3;
-			   unsigned int dev:5;
-			   unsigned int bus:8;
-			   unsigned int reserved2:7;
-			   unsigned int enable:1;
-            *)
-            Xenlight.v = (func lsl 8) lor (dev lsl 11) lor (bus lsl 16);
-            domain = domain;
-            vdevfn = 0;
-            msitranslate = msitranslate = 1;
-            power_mgmt = pci_power_mgmt = 1;
-        }
-*)
-
-
-(* XXX: this will crash because of the logging policy within the
-   Xenlight ocaml bindings.
-let add_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
-	List.iter
-		(fun dev ->
-			try
-				Xenlight.pci_add (pci_info_of ~msitranslate ~pci_power_mgmt dev) domid
-			with e ->
-				debug "Xenlight.pci_add: %s" (Printexc.to_string e);
-				raise e
-		) pcidevs
-*)
-(* XXX: this will crash because of the logging policy within the
-   Xenlight ocaml bindings.
-let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
-	List.iter
-		(fun dev ->
-			try
-				Xenlight.pci_remove (pci_info_of ~msitranslate ~pci_power_mgmt dev) domid
-			with e ->
-				debug "Xenlight.pci_remove: %s" (Printexc.to_string e);
-				raise e
-		) pcidevs
-*)
-
 (* XXX: we don't want to use the 'xl' command here because the "interface"
    isn't considered as stable as the C API *)
 let xl_pci cmd pcidevs domid =
@@ -1240,14 +1192,8 @@ let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 	debug "Device.Pci.clean_shutdown %s" (string_of_device x);
 	let devs = enumerate_devs ~xs x in
 	Xenctrl.with_intf (fun xc ->
-		let hvm =
-			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.hvm_guest
-			with _ -> false
-			in
-		if hvm then 
-			try release ~xc ~xs devs x.frontend.domid
-			with _ -> ()
-		else ());
+		try release ~xc ~xs devs x.frontend.domid
+		with _ -> ());
 	()
 
 let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
