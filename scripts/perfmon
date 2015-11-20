@@ -669,7 +669,7 @@ class VMMonitor(ObjectMonitor):
        * alarm_trigger_period: num seconds of 'bad' values before an alarm is sent (default '60')
        * alarm_auto_inhibit_period: num seconds this alarm disabled after an alarm is sent (default '3600')
        * consolidation_fn: how to combine variables from rrd_updates into one value
-         (default is 'average' for 'cpu_usage', 'get_percent_fs_usage' for 'fs_usage', 'get_percent_log_fs_usage' for 'log_fs_usage', 'get_percent_mem_usage' for 'mem_usage', & 'sum' for everything else)
+         (default is 'average' for 'cpu_usage', 'get_percent_fs_usage' for 'fs_usage', 'get_percent_log_fs_usage' for 'log_fs_usage', & 'sum' for everything else)
        * rrd_regex matches the names of variables from (xe vm-data-sources-list uuid=$vmuuid) used to compute value
          (only has defaults for "cpu_usage", "network_usage", and "disk_usage")
     """
@@ -684,7 +684,6 @@ class VMMonitor(ObjectMonitor):
             if variable_name == "cpu_usage": return 'average'
             elif variable_name == "fs_usage": return 'get_percent_fs_usage'
             elif variable_name == "log_fs_usage": return 'get_percent_log_fs_usage'
-            elif variable_name == "mem_usage": return 'get_percent_mem_usage'
             else: return 'sum'
         elif config_tag == 'rrd_regex':
             if variable_name == "cpu_usage": return "cpu[0-9]+"
@@ -692,14 +691,12 @@ class VMMonitor(ObjectMonitor):
             elif variable_name == "disk_usage": return "vbd_(xvd|hd)[a-z]+_(read|write)"
             elif variable_name == "fs_usage": return "_$_DUMMY__"     # match nothing
             elif variable_name == "log_fs_usage": return "_$_DUMMY__" # match nothing
-            elif variable_name == "mem_usage": return "_$_DUMMY__"    # match nothing
             else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
         elif config_tag == 'alarm_trigger_level': 
             if variable_name == "fs_usage": return '0.9'              # trigger when 90% full
             elif variable_name == "log_fs_usage": return '0.9'        # trigger when 90% full
-            elif variable_name == "mem_usage": return '0.95'          # tigger when mem demanded is close to phy_mem
             else: raise XmlConfigException, "variable %s: no default alarm_trigger_level - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_sense':       return 'high' # trigger if *above*
         elif config_tag == 'alarm_priority':             return '3'   # Service degradation level defined in PR-1455
@@ -790,15 +787,20 @@ class HOSTMonitor(ObjectMonitor):
         "This allows user to not specify full set of tags for each variable in xml config"
         if config_tag == 'consolidation_fn':
             if variable_name == "cpu_usage": return 'average'
+            elif variable_name == "mem_usage": return 'get_percent_mem_usage'
             else: return 'sum'
         elif config_tag == 'rrd_regex':
             if variable_name == "cpu_usage": return "cpu[0-9]+"
             elif variable_name == "network_usage": return "pif_eth[0-9]+_[rt]x"
             elif variable_name == "memory_free_kib": return variable_name
+            elif variable_name == "mem_usage": return "_$_DUMMY__"    # match nothing
             elif re.match("sr_io_throughput_total_[0-9a-f]{8}$", variable_name): return variable_name[3:]
             else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
+        elif config_tag == 'alarm_trigger_level': 
+            if variable_name == "mem_usage": return '0.95'          # tigger when mem demanded is close to phy_mem
+            else: raise XmlConfigException, "variable %s: no default alarm_trigger_level - please specify one" % variable_name
         elif config_tag == 'alarm_trigger_sense':
             if variable_name == "memory_free_kib": return "low"
             else: return 'high' # trigger if *above* level
